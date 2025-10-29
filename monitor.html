@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blue/Green Monitor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; transition: background 0.5s ease; min-height: 100vh; }
+        body.blue { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); }
+        body.green { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+        .container { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; padding: 20px; }
+        .status-card { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); padding: 40px; border-radius: 20px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); text-align: center; min-width: 400px; }
+        h1 { font-size: 3em; margin-bottom: 20px; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3); }
+        .pool-badge { display: inline-block; padding: 15px 40px; font-size: 2em; font-weight: bold; border-radius: 50px; margin: 20px 0; text-transform: uppercase; letter-spacing: 3px; }
+        .pool-badge.blue { background: rgba(30, 60, 114, 0.8); border: 3px solid #fff; }
+        .pool-badge.green { background: rgba(17, 153, 142, 0.8); border: 3px solid #fff; }
+        .info { margin: 20px 0; font-size: 1.2em; line-height: 1.8; }
+        .info div { margin: 10px 0; }
+        .label { opacity: 0.8; font-size: 0.9em; }
+        .value { font-weight: bold; font-size: 1.1em; }
+        .controls { margin-top: 30px; display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; }
+        button { padding: 12px 24px; font-size: 1em; border: 2px solid white; background: rgba(255, 255, 255, 0.2); color: white; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; font-weight: bold; }
+        button:hover { background: rgba(255, 255, 255, 0.3); transform: translateY(-2px); }
+        .history { margin-top: 20px; display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; }
+        .history-dot { width: 15px; height: 15px; border-radius: 50%; }
+        .history-dot.blue { background: #2a5298; }
+        .history-dot.green { background: #38ef7d; }
+        .auto-refresh { margin-top: 20px; font-size: 0.9em; opacity: 0.8; }
+        .error { background: rgba(255, 0, 0, 0.3); padding: 15px; border-radius: 8px; margin-top: 20px; }
+    </style>
+</head>
+<body class="blue">
+    <div class="container">
+        <div class="status-card">
+            <h1>Blue/Green Monitor</h1>
+            <div class="pool-badge blue" id="poolBadge">LOADING...</div>
+            <div class="info">
+                <div><span class="label">Release ID:</span><div class="value" id="releaseId">-</div></div>
+                <div><span class="label">Status:</span><div class="value" id="statusCode">-</div></div>
+                <div><span class="label">Updated:</span><div class="value" id="lastUpdate">-</div></div>
+            </div>
+            <div class="history" id="history"></div>
+            <div class="controls">
+                <button onclick="checkStatus()">🔄 Refresh</button>
+                <button onclick="triggerChaos()">💥 Chaos Blue</button>
+                <button onclick="stopChaos()">✅ Stop</button>
+            </div>
+            <div class="auto-refresh">Auto-refresh: 2s</div>
+            <div id="errorMsg"></div>
+        </div>
+    </div>
+    <script>
+        let history = [];
+        async function checkStatus() {
+            try {
+                const r = await fetch('/version');
+                const pool = r.headers.get('X-App-Pool');
+                const rid = r.headers.get('X-Release-Id');
+                document.getElementById('poolBadge').textContent = pool ? pool.toUpperCase() : 'UNKNOWN';
+                document.getElementById('poolBadge').className = 'pool-badge ' + (pool || 'blue');
+                document.body.className = pool || 'blue';
+                document.getElementById('releaseId').textContent = rid || '-';
+                document.getElementById('statusCode').textContent = r.status;
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+                document.getElementById('errorMsg').innerHTML = '';
+                if (pool) { history.push(pool); if (history.length > 30) history.shift(); document.getElementById('history').innerHTML = history.map(p => '<div class="history-dot ' + p + '"></div>').join(''); }
+            } catch (e) { document.getElementById('errorMsg').innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
+        }
+        async function triggerChaos() {
+            try { await fetch('http://3.90.62.114:8081/chaos/start?mode=error', { method: 'POST' }); alert('Chaos started'); } catch (e) { alert('Failed: ' + e.message); }
+        }
+        async function stopChaos() {
+            try { await fetch('http://3.90.62.114:8081/chaos/stop', { method: 'POST' }); await fetch('http://3.90.62.114:8082/chaos/stop', { method: 'POST' }); alert('Stopped'); } catch (e) { alert('Failed'); }
+        }
+        checkStatus(); setInterval(checkStatus, 2000);
+    </script>
+</body>
+</html>

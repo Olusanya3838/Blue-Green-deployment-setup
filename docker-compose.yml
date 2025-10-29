@@ -9,6 +9,7 @@ services:
     volumes:
       - ./nginx.conf.template:/etc/nginx/nginx.conf.template:ro
       - ./entrypoint.sh:/entrypoint.sh:ro
+      - ./monitor.html:/usr/share/nginx/html/monitor.html:ro
     environment:
       - ACTIVE_POOL=${ACTIVE_POOL:-blue}  # Which pool is primary
     command: ["/bin/sh", "/entrypoint.sh"]

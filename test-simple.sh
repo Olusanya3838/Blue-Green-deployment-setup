@@ -50,7 +50,13 @@ for i in {1..5}; do
     status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/version)
     
     if [ "$status" = "200" ]; then
-        echo "  Request $i: Status $status, Pool: $pool"
+        if [ "$pool" = "blue" ]; then
+            echo -e "  Request $i: Status $status, Pool: \033[44m\033[97m BLUE \033[0m"
+        elif [ "$pool" = "green" ]; then
+            echo -e "  Request $i: Status $status, Pool: \033[42m\033[97m GREEN \033[0m"
+        else
+            echo "  Request $i: Status $status, Pool: $pool"
+        fi
     else
         echo "  Request $i: Status $status - FAILED"
         exit 1
@@ -91,7 +97,13 @@ for i in {1..10}; do
     status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/version)
     
     if [ "$status" = "200" ]; then
-        echo "  Request $i: Status $status, Pool: $pool"
+        if [ "$pool" = "blue" ]; then
+            echo -e "  Request $i: Status $status, Pool: \033[44m\033[97m BLUE \033[0m"
+        elif [ "$pool" = "green" ]; then
+            echo -e "  Request $i: Status $status, Pool: \033[42m\033[97m GREEN \033[0m"
+        else
+            echo "  Request $i: Status $status, Pool: $pool"
+        fi
         if [ "$pool" = "green" ]; then
             green_count=$((green_count + 1))
         fi
@@ -155,4 +167,3 @@ else
     echo "================================"
     exit 1
 fi
-
