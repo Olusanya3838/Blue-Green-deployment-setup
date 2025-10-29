@@ -3,96 +3,51 @@ events {
 }
 
 http {
-    # Define upstream with PRIMARY and BACKUP servers
-    # ${ACTIVE_POOL} and ${BACKUP_POOL} will be replaced by entrypoint.sh
     upstream backend {
-        # PRIMARY server (the active pool)
-        # max_fails=1: Mark as down after just 1 failure
-        # fail_timeout=5s: Keep it marked down for 5 seconds
         server app_${ACTIVE_POOL}:3000 max_fails=1 fail_timeout=5s;
-        
-        # BACKUP server (the standby pool)
-        # Only gets traffic when primary is marked down
         server app_${BACKUP_POOL}:3000 backup;
     }
 
-    # Logging
     access_log /var/log/nginx/access.log;
     error_log /var/log/nginx/error.log warn;
 
     server {
         listen 80;
+        root /usr/share/nginx/html;
         
-        # Root path - welcome page
         location = / {
-            return 200 '<!DOCTYPE html>
-<html>
-<head>
-    <title>Blue/Green Deployment</title>
-    <meta charset="UTF-8">
-</head>
-<body style="font-family: Arial; padding: 50px; text-align: center;">
-    <h1>Blue/Green Deployment Active</h1>
-    <p>Available endpoints:</p>
-    <ul style="list-style: none; padding: 0;">
-        <li><a href="/version">/version</a> - Check current version</li>
-        <li><a href="/healthz">/healthz</a> - Health check</li>
-        <li><a href="/monitor.html">/monitor.html</a> - Visual Monitor Dashboard</li>
-    </ul>
-</body>
-</html>';
+            try_files /monitor.html =404;
             add_header Content-Type "text/html; charset=UTF-8";
         }
         
-        # Monitor dashboard
         location = /monitor.html {
-            alias /usr/share/nginx/html/monitor.html;
+            try_files /monitor.html =404;
             add_header Content-Type "text/html; charset=UTF-8";
         }
         
-        # Proxy all other requests to backend
         location / {
-            # Send requests to the "backend" upstream
             proxy_pass http://backend;
             proxy_http_version 1.1;
-            
-            # TIGHT TIMEOUTS - detect failures quickly
-            proxy_connect_timeout 2s;  # 2 seconds to connect
-            proxy_send_timeout 3s;     # 3 seconds to send request
-            proxy_read_timeout 3s;     # 3 seconds to read response
-            
-            # RETRY POLICY - when to try the next upstream (backup)
-            # error: connection error
-            # timeout: timeout occurred
-            # http_500, http_502, http_503, http_504: server errors
+            proxy_connect_timeout 2s;
+            proxy_send_timeout 3s;
+            proxy_read_timeout 3s;
             proxy_next_upstream error timeout http_500 http_502 http_503 http_504;
-            proxy_next_upstream_tries 2;      # Try up to 2 servers total (primary + backup)
-            proxy_next_upstream_timeout 8s;   # Total time for all retry attempts
-            
-            # Forward client headers
+            proxy_next_upstream_tries 2;
+            proxy_next_upstream_timeout 8s;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
-            
-            # PRESERVE APP HEADERS - X-App-Pool and X-Release-Id
-            # We hide them first, then add them back to ensure they're passed through
             proxy_hide_header X-App-Pool;
             proxy_hide_header X-Release-Id;
             add_header X-App-Pool $upstream_http_x_app_pool always;
             add_header X-Release-Id $upstream_http_x_release_id always;
         }
         
-        # Health check endpoint for Nginx itself
         location /nginx-health {
             access_log off;
             return 200 "OK\n";
             add_header Content-Type text/plain;
-        }
-        
-        # Monitor page
-        location /monitor.html {
-            alias /usr/share/nginx/html/monitor.html;
         }
     }
 }
