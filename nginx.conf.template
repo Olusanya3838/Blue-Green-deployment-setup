@@ -1,0 +1,40 @@
+events {
+    worker_connections 1024;
+}
+
+http {
+    upstream backend {
+        server app_${ACTIVE_POOL}:3000 max_fails=1 fail_timeout=5s;
+        server app_${BACKUP_POOL}:3000 backup;
+    }
+
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log warn;
+
+    server {
+        listen 80;
+        
+        location / {
+            proxy_pass http://backend;
+            proxy_http_version 1.1;
+            
+            proxy_connect_timeout 2s;
+            proxy_send_timeout 3s;
+            proxy_read_timeout 3s;
+            
+            proxy_next_upstream error timeout http_500 http_502 http_503 http_504;
+            proxy_next_upstream_tries 2;
+            proxy_next_upstream_timeout 8s;
+            
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            proxy_hide_header X-App-Pool;
+            proxy_hide_header X-Release-Id;
+            add_header X-App-Pool $upstream_http_x_app_pool always;
+            add_header X-Release-Id $upstream_http_x_release_id always;
+        }
+    }
+}
